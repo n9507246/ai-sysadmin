@@ -3,9 +3,9 @@ from core.MemoryManager import MemoryManager
 
 def main():
 
-    # Создаем агента
+    # Инициализируем агента и память
     agent = Agent()
-    memory = MemoryManager() # Инициализируем память
+    memory = MemoryManager("history.json")
     
     print("AI-ассистент запущен. Введите 'exit' для выхода.")
     
@@ -17,12 +17,17 @@ def main():
         if user_input.lower() in ("exit", "quit"):
             break
         else:
-            # Запускаем агента с пользовательским вводом и историей из памяти 
+            # 1. Запускаем агента, передавая историю из памяти
             result = agent.run(user_input, history=memory.get_history())
             
-            # Обновляем память новыми сообщениями из результата
-            # Берем последние два (Human и AI)
-            memory.add_messages(result["messages"][-2:])
+            # 2. Извлекаем последние два сообщения (HumanMessage и AIMessage)
+            # Они уже добавлены в state графом LangGraph внутри Agent.run
+            if "messages" in result and len(result["messages"]) >= 2:
+                new_chat_step = result["messages"][-2:]
+                
+                # 3. Добавляем их в память ОДИН РАЗ
+                # Этот метод сам вызовет save_to_file()
+                memory.add_messages(new_chat_step)
 
         # после того, как агент отработал, он 
         # возвращает состояние AgentState 
