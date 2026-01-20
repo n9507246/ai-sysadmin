@@ -5,7 +5,7 @@ def main():
 
     # Инициализируем агента и память
     agent = Agent()
-    memory = MemoryManager("history.json")
+    memory = MemoryManager("history.json", max_entries=10)
     
     print("AI-ассистент запущен. Введите 'exit' для выхода.")
     

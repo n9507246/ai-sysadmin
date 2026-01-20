@@ -1,29 +1,28 @@
 import json
 import os
-# Импортируем только необходимые базовые классы сообщений
+# Используем базовые классы сообщений для типизации и логики
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 
 class MemoryManager:
     """
-    Класс для управления историей диалога. 
-    Обеспечивает компактное хранение данных в JSON, оставляя только тип сообщения и его текст.
+    Менеджер памяти, реализующий механизм 'скользящего окна'.
+    Хранит только последние N сообщений, чтобы контекст не разрастался бесконечно.
     """
 
-    def __init__(self, file_path: str = "history.json"):
+    def __init__(self, file_path: str = "history.json", max_entries: int = 20):
         """
-        Инициализация менеджера памяти.
-        :param file_path: Путь к файлу, в котором будет храниться история.
+        :param file_path: Путь к файлу для постоянного хранения.
+        :param max_entries: Лимит сообщений в памяти (например, 20 сообщений = 10 диалогов).
         """
         self.file_path = file_path
-        # При создании экземпляра сразу пытаемся загрузить существующую историю из файла
+        self.max_entries = max_entries
+        # При загрузке сразу получаем актуальную историю, не превышающую лимит
         self.history: list[BaseMessage] = self._load_from_file()
 
     def _load_from_file(self) -> list[BaseMessage]:
         """
-        Загружает данные из JSON-файла и восстанавливает их в объекты LangChain.
-        Это необходимо, так как LangGraph и LLM-узлы ожидают объекты классов, а не просто словари.
+        Загружает историю из JSON и восстанавливает объекты сообщений.
         """
-        # Если файла еще нет (первый запуск), возвращаем пустой список
         if not os.path.exists(self.file_path):
             return []
         
@@ -31,57 +30,62 @@ class MemoryManager:
             with open(self.file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 messages = []
-                # Проходим по каждому упрощенному словарю в JSON
                 for item in data:
-                    # На основе строкового значения "type" создаем соответствующий объект класса
+                    # Восстанавливаем типы сообщений на основе сохраненного поля 'type'
                     if item["type"] == "human":
                         messages.append(HumanMessage(content=item["content"]))
                     elif item["type"] == "ai":
                         messages.append(AIMessage(content=item["content"]))
-                return messages
+                
+                # Слайсинг [-max_entries:]: берем только последние элементы списка.
+                # Это гарантирует соблюдение лимита, даже если JSON редактировали вручную.
+                return messages[-self.max_entries:]
         except Exception as e:
-            # Если файл поврежден или возникла ошибка чтения, выводим её и возвращаем пустой список
             print(f"Ошибка при загрузке истории: {e}")
             return []
 
     def save_to_file(self):
         """
-        Конвертирует текущий список объектов BaseMessage в упрощенный формат JSON.
-        Мы сознательно игнорируем ID сообщений и прочие метаданные для чистоты файла.
+        Метод автоматической обрезки и сохранения истории в файл.
         """
         try:
-            compact_data = []
-            # Перебираем все сообщения в текущей сессии
-            for msg in self.history:
-                # Проверяем экземпляр класса, чтобы определить строковую метку роли
-                if isinstance(msg, HumanMessage):
-                    msg_type = "human"
-                elif isinstance(msg, AIMessage):
-                    msg_type = "ai"
-                else:
-                    msg_type = "human" # Резервный тип
+            # 1. Проверяем текущий размер истории.
+            # Если сообщений больше лимита, отсекаем самые старые (из начала списка).
+            if len(self.history) > self.max_entries:
+                self.history = self.history[-self.max_entries:]
 
-                # Формируем минималистичный словарь для записи
+            # 2. Конвертируем объекты в компактный формат (тип + текст)
+            compact_data = []
+            for msg in self.history:
+                msg_type = "human" if isinstance(msg, HumanMessage) else "ai"
                 compact_data.append({
                     "type": msg_type,
                     "content": msg.content
                 })
 
-            # Записываем список словарей в файл с отступами для читаемости
+            # 3. Перезаписываем файл актуальными данными
             with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(compact_data, f, ensure_ascii=False, indent=4)
         except Exception as e:
             print(f"Ошибка при сохранении истории: {e}")
 
     def get_history(self) -> list[BaseMessage]:
-        """Возвращает текущий список сообщений в виде объектов для передачи в Agent."""
+        """Возвращает историю для передачи в LangGraph Agent."""
         return self.history
 
     def add_messages(self, messages: list[BaseMessage]):
         """
-        Добавляет новые сообщения в память и синхронизирует изменения с файлом на диске.
-        :param messages: Список новых сообщений (обычно пара: HumanMessage и AIMessage).
+        Добавляет новую порцию сообщений в конец истории и инициирует сохранение.
         """
         self.history.extend(messages)
-        # Автоматическое сохранение после каждого обновления, чтобы не потерять данные при сбое
+        # Вызов сохранения также спровоцирует проверку лимита (обрезку)
         self.save_to_file()
+
+    def clear(self):
+        """
+        Метод для полной очистки диалога. Удаляет файл и обнуляет историю в памяти.
+        """
+        self.history = []
+        if os.path.exists(self.file_path):
+            os.remove(self.file_path)
+        print("История переписки полностью очищена.")
