@@ -14,9 +14,10 @@ class Agent(BaseAgent):
         graph_builder.add_edge("ask_yandex_node", END) # Соединяем узел LLM с концом графа
         self.graph = graph_builder.compile() # Компилируем граф в исполняемый вид
 
-    def run(self, user_message: str = '') -> AgentState:
+    def run(self, user_message: str, history: list = []) -> AgentState:
         ''' Запускает агента с заданным пользовательским сообщением. '''
         return self.graph.invoke({
             "input": user_message, 
+            "messages": history, # Передаем накопленную историю
             "output": "",
         })

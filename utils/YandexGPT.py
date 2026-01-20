@@ -1,58 +1,92 @@
 import os
 import openai
 from dotenv import load_dotenv
+# Импортируем базовые классы сообщений LangChain для проверки типов
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 
-# Загружаем переменные окружения из файла .env
+# Загружаем переменные окружения (API-ключи и ID папки) из файла .env
 load_dotenv()
-
 
 class YandexGPT():
     """
-    Класс для работы с языковой моделью YandexGPT через API Yandex Cloud.
-    Позволяет отправлять сообщения модели и получать текстовые ответы.
+    Класс-адаптер для взаимодействия с YandexGPT.
+    Преобразует высокоуровневые объекты сообщений LangChain в формат, 
+    совместимый с OpenAI API, который используется в Yandex Cloud.
     """
 
     def __init__(self):
-        # Создаём клиента для работы с API YandexGPT
-        # Используем ключ и ID папки из переменных окружения
+        # Инициализация клиента OpenAI SDK, настроенного на эндпоинт Yandex Cloud
         self.client = openai.OpenAI(
-            api_key=os.getenv("YANDEX_CLOUD_API_KEY"),  # API-ключ для доступа
-            base_url="https://llm.api.cloud.yandex.net/v1",  # адрес API
+            api_key=os.getenv("YANDEX_CLOUD_API_KEY"),
+            base_url="https://llm.api.cloud.yandex.net/v1",
             default_headers={
-                "x-folder-id": os.getenv("YANDEX_CLOUD_FOLDER")  # идентификатор папки в облаке
+                "x-folder-id": os.getenv("YANDEX_CLOUD_FOLDER")
             },
         )
 
-        # Путь к модели YandexGPT в формате Yandex Cloud
+        # Формируем URI модели: gpt://<folder_id>/yandexgpt/latest
         self.model_path = (
             f"gpt://{os.getenv('YANDEX_CLOUD_FOLDER')}/yandexgpt/latest"
         )
 
+    def _convert_messages(self, messages: list) -> list[dict]:
+        """
+        Конвертирует список объектов сообщений в формат словарей (JSON-like).
+        
+        Зачем это нужно:
+        1. Разделение ответственности: Ваши узлы графа работают с объектами (HumanMessage, AIMessage),
+           что удобно для логики LangGraph, но API Yandex ожидает простые словари с ключами 'role' и 'content'.
+        2. Автоматизация: Метод избавляет от необходимости вручную писать {"role": "user", ...} в каждом узле.
+        3. Гибкость: Если вы добавите новые типы сообщений, логику их обработки нужно будет изменить только здесь.
+        """
+        formatted_messages = []
+        
+        for msg in messages:
+            # Если сообщение уже является словарем (прокидываем как есть)
+            if isinstance(msg, dict):
+                formatted_messages.append(msg)
+                continue
+            
+            # Сопоставление классов LangChain с ролями API Yandex
+            if isinstance(msg, HumanMessage):
+                role = "user"        # Сообщение от человека
+            elif isinstance(msg, AIMessage):
+                role = "assistant"   # Ответ языковой модели
+            elif isinstance(msg, SystemMessage):
+                role = "system"      # Инструкция (системный промпт)
+            else:
+                role = "user"        # Резервный вариант
+                
+            # Добавляем в итоговый список словарь, понятный API
+            formatted_messages.append({
+                "role": role, 
+                "content": msg.content
+            })
+            
+        return formatted_messages
+
     def ask(
         self,
-        messages: list[dict],  # список сообщений в формате {"role": "user/assistant/system", "content": "..."}
-        max_tokens: int = 2000,  # максимальное количество токенов в ответе
-        temp: float = 0.3        # температура генерации (чем меньше, тем точнее ответы)
+        messages: list, 
+        max_tokens: int = 2000,
+        temp: float = 0.3
     ) -> str:
         """
-        Отправляет сообщения модели YandexGPT и возвращает её текстовый ответ.
-
-        Параметры:
-            messages (list[dict]): переписка с моделью.
-            max_tokens (int): лимит токенов в ответе.
-            temp (float): креативность ответа (температура).
-
-        Возвращает:
-            str: текстовый ответ модели.
+        Основной метод для генерации ответа.
+        Принимает список сообщений (объекты или словари), выполняет конвертацию 
+        и отправляет запрос в облако.
         """
 
-        # Отправляем запрос в модель через API
+        # 1. Приводим сообщения к единому формату словарей перед отправкой
+        api_messages = self._convert_messages(messages)
+
+        # 2. Выполняем HTTP-запрос через библиотеку openai
         response = self.client.chat.completions.create(
-            model=self.model_path,  # модель, с которой работаем
-            messages=messages,      # переписка
-            max_tokens=max_tokens,  # ограничение длины ответа
-            temperature=temp,       # креативность
+            model=self.model_path,
+            messages=api_messages,
+            max_tokens=max_tokens,
+            temperature=temp,
         )
 
-        # Возвращаем текст ответа модели
+        # 3. Извлекаем только текст ответа
         return response.choices[0].message.content
