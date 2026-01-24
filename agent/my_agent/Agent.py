@@ -2,7 +2,7 @@ import uuid
 from langchain_core.messages import HumanMessage
 from core.BaseAgent import BaseAgent
 from langgraph.graph import StateGraph, START, END
-from agent.my_agent.AgentState import AgentState
+from agent.my_agent.state.AgentState import AgentState
 from node.LLM import LLM
 from node.Summarizer.Summarizer import Summarizer
 from node.FileReaderNode import FileReaderNode
