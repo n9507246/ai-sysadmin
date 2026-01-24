@@ -4,7 +4,7 @@ from core.BaseAgent import BaseAgent
 from langgraph.graph import StateGraph, START, END
 from agent.my_agent.AgentState import AgentState
 from node.LLM import LLM
-from node.Summarizer import Summarizer
+from node.Summarizer.Summarizer import Summarizer
 from node.FileReaderNode import FileReaderNode
 from utils.YandexGPT import YandexGPT
 from config import SYSTEM_PROMPT, SUMMARIZE_INSTRUCTION
