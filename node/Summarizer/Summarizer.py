@@ -1,14 +1,17 @@
+from dataclasses import dataclass
 from agent.my_agent.AgentState import AgentState
 from langchain_core.messages import RemoveMessage
 from node.Summarizer.CliOutput import CliOutput
+from typing import Any
 
 
+@dataclass
 class Summarizer:
-    def __init__(self, model, instruction, summary_threshold: int = 16, keep_messages: int = 6):
-        self.model = model
-        self.instruction = instruction
-        self.summary_threshold = summary_threshold
-        self.keep_messages = keep_messages
+    
+    model: Any
+    instruction: str
+    summary_threshold: int = 16
+    keep_messages: int = 6
 
     def __call__(self, state: AgentState):
         messages = state.get("messages", [])
@@ -39,6 +42,7 @@ class Summarizer:
                 "summary": summary,
                 "messages": delete_messages,
             }
+
         except Exception as e:
             CliOutput.print_summary_error(e)
             return {}
