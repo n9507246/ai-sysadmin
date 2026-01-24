@@ -1,19 +1,14 @@
 from agent.my_agent.Agent import Agent
 from core.MemoryManager import MemoryManager
-from config import HISTORY_MAX_ENTRIES
+from config import HISTORY_MAX_ENTRIES, SUMMARY_THRESHOLD, KEEP_MESSAGES
 
 
 def main():
 
-    # Настройки здесь:
-    THRESHOLD = 20    # Суммаризировать, когда накопится 20 сообщений
-    KEEP = 10         # После суммаризации оставлять 10 последних "живых" сообщений
-    FILE_LIMIT = 40   # Максимальный размер файла (страховка)
-
-    agent = Agent(summary_threshold=THRESHOLD, keep_messages=KEEP)
-    memory = MemoryManager("history.json", max_entries=FILE_LIMIT)
+    agent = Agent(summary_threshold=SUMMARY_THRESHOLD, keep_messages=KEEP_MESSAGES)
+    memory = MemoryManager("history.json", max_entries=HISTORY_MAX_ENTRIES)
     
-    print(f"Запущено: Порог={THRESHOLD}, Оставляем={KEEP}")
+    print(f"Запущено: Порог={SUMMARY_THRESHOLD}, Оставляем={KEEP_MESSAGES}")
     
     # Основной цикл взаимодействия с пользователем
     while True:
