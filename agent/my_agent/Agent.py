@@ -48,7 +48,7 @@ class Agent(BaseAgent):
         self.graph = graph_builder.compile()
 
     def run(self, user_message: str, history: list = None, summary: str = "") -> dict:
-        print(f"[LOG] Запуск итерации графа для сообщения: '{user_message[:20]}...'")
+        # print(f"[LOG] Запуск итерации графа для сообщения: '{user_message[:20]}...'")
         
         # Добавляем сообщение пользователя в историю перед запуском графа
         history = history or []

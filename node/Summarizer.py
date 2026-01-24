@@ -1,12 +1,14 @@
+import uuid
+from rich.console import Console
+from rich.panel import Panel
+from rich.columns import Columns
+from rich.text import Text
 from agent.my_agent.AgentState import AgentState
 from langchain_core.messages import RemoveMessage
+from utils.logger import console
 
 class Summarizer:
     def __init__(self, model, instruction, summary_threshold: int = 16, keep_messages: int = 6):
-        """
-        :param summary_threshold: Когда запускать суммаризацию.
-        :param keep_messages: Сколько последних сообщений НЕ удалять.
-        """
         self.model = model
         self.instruction = instruction
         self.summary_threshold = summary_threshold
@@ -14,12 +16,20 @@ class Summarizer:
 
     def __call__(self, state: AgentState):
         messages = state.get("messages", [])
-        print(f"[LOG] Сообщений в памяти: {len(messages)}")
+        msg_count = len(messages)
 
-        if len(messages) < self.summary_threshold:
+        # Лаконичный лог текущего состояния
+        console.print(f"\n[dim]─── Память: {msg_count}/{self.summary_threshold} сообщений ───[/dim]\n")
+
+        if msg_count < self.summary_threshold:
             return {} 
 
-        print(f"[LOG] Порог ({self.summary_threshold}) превышен. Суммаризация...")
+        # Визуальный акцент на запуске суммаризации
+        console.print(Panel(
+            f"[bold yellow]Порог ({self.summary_threshold}) превышен![/bold yellow]\n"
+            f"Запускаю процесс сжатия истории...",
+            border_style="yellow"
+        ))
         
         history_text = "\n".join([f"{m.type}: {m.content}" for m in messages])
         prompt = [
@@ -29,13 +39,32 @@ class Summarizer:
         
         try:
             summary = self.model.ask(prompt)
-            # Удаляем все сообщения, кроме последних self.keep_messages
-            delete_messages = [RemoveMessage(id=m.id) for m in messages[:-self.keep_messages] if m.id]
             
+            # Сообщения для удаления
+            to_delete = messages[:-self.keep_messages]
+            delete_messages = [RemoveMessage(id=m.id) for m in to_delete if m.id]
+            
+            # Красивый отчет о результате
+            summary_panel = Panel(
+                f"[italic white]{summary}[/italic white]",
+                title="[bold green]Новое резюме памяти (Summary)[/bold green]",
+                border_style="green",
+                padding=(1, 2)
+            )
+            
+            stats_text = Text.assemble(
+                ("Удалено: ", "bold red"), (f"{len(delete_messages)} ", "red"),
+                ("Оставлено: ", "bold cyan"), (f"{self.keep_messages}", "cyan")
+            )
+            
+            console.print(summary_panel)
+            console.print(stats_text)
+            console.print("[dim]──────────────────────────────────────────[/dim]\n")
+
             return {
                 "summary": summary, 
                 "messages": delete_messages 
             }
         except Exception as e:
-            print(f"[ERROR] Ошибка суммаризации: {e}")
+            console.print(f"[bold red]❌ Ошибка суммаризации:[/bold red] {e}")
             return {}

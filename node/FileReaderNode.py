@@ -1,11 +1,8 @@
 import uuid
-from rich.console import Console
 from rich.panel import Panel
 from langchain_core.messages import HumanMessage
 from utils.FileReader import FileReader
-
-# Инициализируем консоль
-console = Console()
+from utils.logger import console
 
 class FileReaderNode:
     def __init__(self):
@@ -15,35 +12,31 @@ class FileReaderNode:
         output = state.get("output", "")
         
         try:
-            # Извлекаем путь к файлу
+            # Парсинг пути
             raw_path = output.split("READ_FILE:")[1].strip().split("\n")[0]
-            clean_path = raw_path.strip("'\"`.,")
-            
-            if " " in clean_path:
-                clean_path = clean_path.split(" ")[0].strip("'\"`.,")
-            
-            path = clean_path
+            path = raw_path.strip("'\"`.,").split(" ")[0].strip("'\"`.,")
 
-            # ЛОГ: Короткое уведомление о действии
-            console.print(f"[bold yellow]📂 Чтение файла:[/bold yellow] [cyan]{path}[/cyan]", end=" ")
+            # Логируем в твой Tilix
+            console.print(f"    [bold yellow]📂 Чтение файла:[/bold yellow] [cyan]{path}[/cyan]", end=" ")
 
             content = self.reader.read(path)
             
-            # ЛОГ: Просто подтверждение успеха в той же строке
-            console.print("[bold green]— ОК[/bold green]")
+            console.print(f"    Чтение файла {path}. [bold green]— ОК[/bold green]")
 
-            result = f"Содержимое файла {path}:\n{content}"
+            # Формируем ответ для модели (чтобы она знала, ЧТО прочитала)
+            # Добавляем явное указание пути в начало контента
+            result = f"--- СИСТЕМНОЕ УВЕДОМЛЕНИЕ ---\nУспешно прочитан файл: {path}\n\nСодержимое:\n{content}"
 
         except Exception as e:
-            # ЛОГ: Ошибка выделяется заметнее
             console.print("[bold red]— ОШИБКА[/bold red]")
             console.print(Panel(
                 f"[bold red]Текст ошибки:[/bold red] {str(e)}\n[dim]Контекст: {output}[/dim]",
                 title="❌ Ошибка FileReaderNode",
                 border_style="red"
             ))
-            result = f"Не удалось прочитать файл. Ответ модели был: {output}. Ошибка: {e}"
+            result = f"ОШИБКА: Не удалось прочитать файл по пути {path if 'path' in locals() else 'неизвестно'}. Ошибка: {e}"
 
         return {
+            # Возвращаем это в историю сообщений
             "messages": [HumanMessage(content=result, id=str(uuid.uuid4()))]
         }
