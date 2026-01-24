@@ -10,3 +10,4 @@ class AgentState(TypedDict):
     input: str   # Входящий запрос от пользователя
     output: str  # Ответ, сформированный моделью
     messages: Annotated[list[BaseMessage], add_messages]
+    summary: str  # Поле для хранения сжатого контекста
