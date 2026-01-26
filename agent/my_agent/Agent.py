@@ -6,6 +6,7 @@ from agent.my_agent.state.AgentState import AgentState
 from node.LLM import LLM
 from node.Summarizer.Summarizer import Summarizer
 from node.FileReaderNode import FileReaderNode
+from node.CommandExecutorNode import CommandExecutorNode
 from utils.YandexGPT import YandexGPT
 from config import SYSTEM_PROMPT, SUMMARIZE_INSTRUCTION
 
@@ -16,6 +17,7 @@ class Agent(BaseAgent):
 
         graph_builder.add_node("ask_yandex_node", LLM(model=llm_model, system_prompt=SYSTEM_PROMPT))
         graph_builder.add_node("read_file_node", FileReaderNode())
+        graph_builder.add_node("command_node", CommandExecutorNode())
 
         # Настраиваем суммаризатор здесь
         graph_builder.add_node("summarize_node", Summarizer(
@@ -29,6 +31,8 @@ class Agent(BaseAgent):
         def route_logic(state):
             if "READ_FILE:" in state["output"]:
                 return "read_file"
+            if "EXECUTE:" in state["output"]:
+                return "execute_command"
             return "summarize"
 
         graph_builder.add_edge(START, "ask_yandex_node")
@@ -38,11 +42,13 @@ class Agent(BaseAgent):
             route_logic,
             {
                 "read_file": "read_file_node",
+                "execute_command": "command_node",
                 "summarize": "summarize_node"
             }
         )
         
         graph_builder.add_edge("read_file_node", "ask_yandex_node")
+        graph_builder.add_edge("command_node", "ask_yandex_node")
         graph_builder.add_edge("summarize_node", END)
         
         self.graph = graph_builder.compile()

@@ -26,18 +26,16 @@ def main():
                 break
 
             # Создаем статус
-            with console.status("[bold blue]Агент думает...", spinner="dots") as status:
-                # ВАЖНО: передаем объект status в агент, если хотим им управлять
-                # Или просто полагаемся на то, что Nodes используют тот же console
-                result = agent.run(
-                    user_input, 
-                    history=memory.get_history(),
-                    summary=memory.get_summary()
-                )
+            console.print("[bold blue]Агент работает...[/bold blue]")
+            result = agent.run(
+                user_input, 
+                history=memory.get_history(),
+                summary=memory.get_summary()
+            )
 
-                updated_messages = result.get("messages", [])
-                updated_summary = result.get("summary") or memory.get_summary()
-                memory.add_messages(updated_messages, summary=updated_summary)
+            updated_messages = result.get("messages", [])
+            updated_summary = result.get("summary") or memory.get_summary()
+            memory.add_messages(updated_messages, summary=updated_summary)
 
             # После выхода из 'with' спиннер удаляется автоматически. 
             # Теперь выводим ответ.
