@@ -22,7 +22,7 @@ class Agent(BaseAgent):
             model=llm_model, 
             instruction=SUMMARIZE_INSTRUCTION,
             summary_threshold=summary_threshold,
-            keep_messages=keep_messages
+            keep_last_messages_count=keep_messages
         ))
         
         # Логика маршрутизации
