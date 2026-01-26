@@ -12,6 +12,8 @@ class Messages:
 
     @property
     def count(self) -> int:
+
+
         return len(self._messages)
 
     def to_text(self) -> str:

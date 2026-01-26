@@ -8,57 +8,91 @@ from agent.my_agent.state.Messages import Messages
 
 @dataclass
 class Summarizer:
+    
     """
-    Класс для суммаризации истории сообщений агента.
+        Класс для суммаризации истории сообщений агента.
+
+        :param model: LLM-модель, используемая для генерации summary
+        :param instruction: Системная инструкция для суммаризации истории
+        :param summary_threshold: Минимальное количество сообщений, при котором запускается суммаризация
+        :param keep_last_messages_count: Количество последних сообщений, которые нужно сохранить 
     """
+    
     model: Any
     instruction: str
     summary_threshold: int = 16
-    keep_messages: int = 6
-
+    keep_last_messages_count: int = 6
+    
     def __call__(self, state: AgentState):
         
-        messages = Messages(state) # Создаём объект Messages для работы с историей
-        CliOutput.print_memory_state(messages.count, self.summary_threshold) # Печать текущего состояния памяти
+        # Создаём объект Messages для работы с историей сообщений, из состояния агента.
+        messages = Messages( state )                                            
 
-        # Проверка: достигнут ли порог для суммаризации
+
+        # Выводим в консоль текущего состояния памяти.
+        CliOutput.print_memory_state(messages.count,self.summary_threshold)                                           
+                                                                     
+                                                              
+        # Если сообщений меньше порога суммаризации, то она не нужна
         if self._is_below_threshold(messages):
-            # Если сообщений меньше порога — суммаризация не нужна
-            return {}
+            # перерываем работу узла возвращая пустой объект                                  
+            return {}                                                               
 
-        
-        CliOutput.print_summary_start(self.summary_threshold)   # Порог превышен — запускаем суммаризацию
+        # иначе(количество сообщений достигло порога сумморизации)             
+        else:
 
-       
-        history_text = messages.to_text()  # Генерируем текст всей истории через Messages
-        prompt = [
-            {"role": "system", "content": self.instruction},
-            {"role": "user", "content": f"Суммаризируй это:\n{history_text}"},
-        ]
+            # вывродим сообщение что начинаем процесс сумморизации
+            CliOutput.print_summary_start( self.summary_threshold )                  
 
-        try:
-            
-            summary = self.model.ask(prompt) # Получаем резюме от модели
+            try:    
+                
+                # Делаем запрос к модели для генерации саммари 
+                summary = self.model.ask([
+                    { "role": "system", "content": self.instruction },                              # системное сообщение, в котором иструкцию для суммаризации 
+                    { "role": "user", "content": f"Суммаризируй это:\n1{messages.to_text()}" },     # контент для суммморизации
+                ]) 
 
-            # Сообщения, которые нужно удалить
-            delete_messages = [
-                RemoveMessage(id=m.id) for m in messages.to_delete(self.keep_messages) if m.id
-            ]
 
-            # Печать результата суммаризации
-            CliOutput.print_summary_result(summary, len(delete_messages), self.keep_messages)
+                # Получаем список сообщений, которые должны быть удалены,
+                messages_to_remove = messages.to_delete(
+                    # передаем количество последних сообщений которые нужно сохранить 
+                    # для того что бы LLM совсем не потерял контекст
+                    self.keep_last_messages_count   
+                )
 
-            return {
-                "summary": summary,
-                "messages": delete_messages,
-            }
+                # Преобразуем сообщения в команды удаления (RemoveMessage),
+                # которые понимает LangGraph / LangChain
+                delete_messages: list[RemoveMessage] = []
 
-        except Exception as e:
-            # Ошибка суммаризации
-            CliOutput.print_summary_error(e)
-            return {}
+                for message in messages_to_remove:
+                    
+                    # Некоторые сообщения могут не иметь id
+                    # (например, системные или временные сообщения),
+                    # такие сообщения нельзя удалить явно
+                    if not message.id:
+                        continue
 
-    # ───────────── Приватные методы ─────────────
+                    # Создаём объект RemoveMessage по id сообщения
+                    delete_messages.append(
+                        RemoveMessage(id=message.id)
+                    )
+
+
+                # Отображает результат суммаризации: текст нового резюме, количество удалённых и оставленных сообщений
+                CliOutput.print_summary_result(summary, len(delete_messages), self.keep_last_messages_count)
+
+                # возвращаем сумморизацию и сообщение
+                return {
+                    "summary": summary,
+                    "messages": delete_messages,
+                }
+
+            # Обрабатываем ошибки
+            except Exception as e:
+                # Выводим ошибку в консоль
+                CliOutput.print_summary_error(e)
+                # перерываем работу узла возвращая пустой объект  
+                return {}
 
     def _is_below_threshold(self, messages: Messages) -> bool:
         """
