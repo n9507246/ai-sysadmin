@@ -7,7 +7,19 @@ from utils.logger import console
 class CommandExecutorNode:
     def __call__(self, state: dict) -> dict:
         output = state.get("output", "")
-        
+
+        # console.print(output.)
+
+        console.print(
+                Panel(
+                    output,
+                    title="[bold magenta]AI Assistant[/bold magenta]",
+                    border_style="bright_blue",
+                    padding=(1, 2)
+                )
+            )
+
+
         try:
             # Парсим команду. Ожидаем формат: EXECUTE: <команда>
             if "EXECUTE:" not in output:
