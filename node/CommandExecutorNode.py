@@ -16,8 +16,16 @@ class CommandExecutorNode:
             # Парсим команду. Ожидаем формат: EXECUTE: <команда>
             # Берем первую строку после метки
             command = output.split("EXECUTE:")[1].strip().split("\n")[0].strip()
-            # убираем все завершающие скобки и точки
+            
+            # Парсим команду. Ожидаем формат: EXECUTE: <команда>
+            # Берем первую строку после метки
+            command = output.split("EXECUTE:")[1].strip().split("\n")[0].strip()
+
+            # Убираем завершающие скобки, точки и лишние символы
             command = command.rstrip(" ).,")
+
+            # Убираем Markdown-символы: жирный текст ** и обратные кавычки `
+            command = command.replace("**", "").replace("`", "").strip()
 
             
             print('command =====================>  ', command )
