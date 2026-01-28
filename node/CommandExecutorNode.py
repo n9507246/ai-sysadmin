@@ -9,36 +9,16 @@ class CommandExecutorNode:
         output = state.get("output", "")
         
         try:
-
-            print('output =====================>  ', output )
-
-
             # Парсим команду. Ожидаем формат: EXECUTE: <команда>
-            # Берем первую строку после метки
-            command = output.split("EXECUTE:")[1].strip().split("\n")[0].strip()
-            
-            # Парсим команду. Ожидаем формат: EXECUTE: <команда>
-            # Берем первую строку после метки
+            if "EXECUTE:" not in output:
+                return {"messages": [HumanMessage(content="Ошибка: Команда не найдена в ответе агента.", id=str(uuid.uuid4()))]}
+
             command = output.split("EXECUTE:")[1].strip().split("\n")[0].strip()
 
-            # Убираем завершающие скобки, точки и лишние символы
+            # Очистка команды от артефактов разметки
             command = command.rstrip(" ).,")
-
-            # Убираем Markdown-символы: жирный текст ** и обратные кавычки `
             command = command.replace("**", "").replace("`", "").strip()
 
-            
-            print('command =====================>  ', command )
-
-            # Автоматически добавляем -y к командам apt/apt-get, чтобы избежать зависания
-            # в ожидании подтверждения от пользователя [Y/n], которое приводит к таймауту.
-            # if "apt" in command and "-y" not in command:
-            #     # Используем f-строку с пробелами, чтобы заменять только целые слова "install" или "upgrade"
-            #     if " install " in f" {command} ":
-            #         command = f" {command} ".replace(" install ", " install -y ").strip()
-            #     elif " upgrade " in f" {command} ":
-            #         command = f" {command} ".replace(" upgrade ", " upgrade -y ").strip()
-            
             # --- БЛОК ПОДТВЕРЖДЕНИЯ ---
             console.print(f"\n[bold yellow]⚡ Агент предлагает выполнить команду:[/bold yellow] [cyan]{command}[/cyan]")
             confirm = console.input("[bold yellow]   Выполнить? (y/n): [/bold yellow]")
@@ -53,36 +33,56 @@ class CommandExecutorNode:
             console.print(f"    [bold red]🚀 Выполнение:[/bold red] [cyan]{command}[/cyan]", end=" ")
 
             # Запускаем команду
-            # shell=True позволяет использовать пайпы (|) и перенаправления (>), 
-            # что важно для администрирования.
             result = subprocess.run(
                 command, 
                 shell=True, 
                 capture_output=True, 
                 text=True,
-                timeout=60 # Таймаут 60 секунд на всякий случай
+                timeout=120  # Увеличил до 2 минут для тяжелых установок
             )
             
             if result.returncode == 0:
                 console.print(f"[bold green]— OK[/bold green]")
                 
-                # Если есть вывод, показываем его пользователю в красивой рамке
+                # Показываем полный вывод в терминале для тебя
                 if result.stdout and result.stdout.strip():
                     console.print(Panel(result.stdout.strip(), title="[bold green]STDOUT[/bold green]", border_style="green"))
 
-                # Ограничиваем вывод, чтобы не забить контекст (первые 4000 символов)
-                stdout_trunc = result.stdout[:4000] 
-                response = f"--- STDOUT (Код 0) ---\n{stdout_trunc}"
+                # --- УМНАЯ ФИЛЬТРАЦИЯ ДЛЯ ИСТОРИИ (Экономим токены) ---
+                lines = result.stdout.splitlines()
+                
+                # 1. Скрываем подробности пакетных менеджеров при успехе
+                noisy_commands = ['apt', 'install', 'update', 'upgrade', 'dpkg', 'mysql-server']
+                if any(c in command for c in noisy_commands):
+                    stdout_for_ai = "[Команда выполнена успешно. Подробный лог скрыт для экономии контекста.]"
+                
+                # 2. Если вывод длинный (например, список файлов или статус), делаем "сэндвич"
+                elif len(lines) > 30:
+                    stdout_for_ai = "\n".join(
+                        lines[:15] + 
+                        [f"\n... [обрезано {len(lines)-30} строк для экономии токенов] ...\n"] + 
+                        lines[-15:]
+                    )
+                else:
+                    stdout_for_ai = result.stdout.strip()
+                
+                response_text = f"--- STDOUT (Код 0) ---\n{stdout_for_ai}"
+            
             else:
                 console.print(f"[bold red]— FAIL[/bold red]")
                 
-                # Если ошибка, показываем STDERR и STDOUT
+                # Если ошибка — показываем всё в терминале
                 error_view = f"[bold red]STDERR:[/bold red]\n{result.stderr}\n\n[dim]STDOUT:[/dim]\n{result.stdout}"
                 console.print(Panel(error_view, title=f"[bold red]EXIT CODE {result.returncode}[/bold red]", border_style="red"))
 
-                response = f"--- STDERR (Код {result.returncode}) ---\n{result.stderr}\n--- STDOUT ---\n{result.stdout}"
+                # Для ИИ при ошибке тоже чуть-чуть подрезаем, чтобы не «вылететь» за лимиты
+                # Но оставляем достаточно данных для диагностики
+                response_text = (
+                    f"--- STDERR (Код {result.returncode}) ---\n{result.stderr[:1500]}\n"
+                    f"--- STDOUT ---\n{result.stdout[:1000]}"
+                )
 
-            final_msg = f"РЕЗУЛЬТАТ КОМАНДЫ '{command}':\n{response}"
+            final_msg = f"РЕЗУЛЬТАТ КОМАНДЫ '{command}':\n{response_text}"
 
         except Exception as e:
             console.print(f"[bold red]— ОШИБКА ЗАПУСКА: {e}[/bold red]")
