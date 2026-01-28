@@ -88,5 +88,7 @@ class YandexGPT():
             temperature=temp,
         )
 
+        print("==========> response ---  ", response)
+
         # 3. Извлекаем только текст ответа
         return response.choices[0].message.content

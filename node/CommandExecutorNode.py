@@ -9,6 +9,10 @@ class CommandExecutorNode:
         output = state.get("output", "")
         
         try:
+
+            print('output =====================>  ', output )
+
+
             # Парсим команду. Ожидаем формат: EXECUTE: <команда>
             # Берем первую строку после метки
             command = output.split("EXECUTE:")[1].strip().split("\n")[0].strip()
