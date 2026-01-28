@@ -13,14 +13,16 @@ class CommandExecutorNode:
             # Берем первую строку после метки
             command = output.split("EXECUTE:")[1].strip().split("\n")[0].strip()
             
+            print('command =====================>  ', command )
+
             # Автоматически добавляем -y к командам apt/apt-get, чтобы избежать зависания
             # в ожидании подтверждения от пользователя [Y/n], которое приводит к таймауту.
-            if "apt" in command and "-y" not in command:
-                # Используем f-строку с пробелами, чтобы заменять только целые слова "install" или "upgrade"
-                if " install " in f" {command} ":
-                    command = f" {command} ".replace(" install ", " install -y ").strip()
-                elif " upgrade " in f" {command} ":
-                    command = f" {command} ".replace(" upgrade ", " upgrade -y ").strip()
+            # if "apt" in command and "-y" not in command:
+            #     # Используем f-строку с пробелами, чтобы заменять только целые слова "install" или "upgrade"
+            #     if " install " in f" {command} ":
+            #         command = f" {command} ".replace(" install ", " install -y ").strip()
+            #     elif " upgrade " in f" {command} ":
+            #         command = f" {command} ".replace(" upgrade ", " upgrade -y ").strip()
             
             # --- БЛОК ПОДТВЕРЖДЕНИЯ ---
             console.print(f"\n[bold yellow]⚡ Агент предлагает выполнить команду:[/bold yellow] [cyan]{command}[/cyan]")
