@@ -3,6 +3,7 @@ import openai
 from dotenv import load_dotenv
 # Импортируем базовые классы сообщений LangChain для проверки типов
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from utils.YandexGPT.CliOutput import CliOutput
 
 # Загружаем переменные окружения (API-ключи и ID папки) из файла .env
 load_dotenv()
@@ -88,7 +89,11 @@ class YandexGPT():
             temperature=temp,
         )
 
-        print("==========> response ---  ", response)
-
+        CliOutput.print_token_usage(
+            response.usage.prompt_tokens, 
+            response.usage.completion_tokens, 
+            response.usage.total_tokens
+        )
+        
         # 3. Извлекаем только текст ответа
         return response.choices[0].message.content

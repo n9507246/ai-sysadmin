@@ -13,7 +13,7 @@ class CliOutput:
         :param current: Количество текущих сообщений в памяти
         :param threshold: Порог сообщений, после которого запускается суммаризация
         """
-        console.print(f"\n[dim]─── Память: {current}/{threshold} сообщений ───[/dim]\n")
+        console.print(f"[dim]─── Память: {current}/{threshold} сообщений ───[/dim]")
 
     @staticmethod
     def print_summary_start(threshold: int) -> None:

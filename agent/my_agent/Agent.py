@@ -7,7 +7,7 @@ from node.LLM import LLM
 from node.Summarizer.Summarizer import Summarizer
 from node.FileReaderNode import FileReaderNode
 from node.CommandExecutorNode import CommandExecutorNode
-from utils.YandexGPT import YandexGPT
+from utils.YandexGPT.YandexGPT import YandexGPT
 from config import SYSTEM_PROMPT, SUMMARIZE_INSTRUCTION
 
 class Agent(BaseAgent): 
